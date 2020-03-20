@@ -2,8 +2,14 @@ var express = require('express');
 var app = express();
 var server = require('http').Server(app);
 var io = require('socket.io').listen(server);
+const gameWidth = 3840;
+const gameHeight = 2160;
 
 var players = {};
+var star = {
+  x: Math.floor(Math.random() * gameWidth - 100) + 50,
+  y: Math.floor(Math.random() * gameHeight - 100) + 50
+};
 
 app.use(express.static(__dirname + '/public'));
 
@@ -17,14 +23,19 @@ io.on('connection', function (socket) {
   //create a new player and add it to the players object
   players[socket.id] = {
     rotation: 0,
-    x: Math.floor(Math.random() * 700) + 50,
-    y: Math.floor(Math.random() * 500) + 50,
+    x: Math.floor(Math.random() * gameWidth - 100) + 50,
+    y: Math.floor(Math.random() * gameHeight - 100) + 50,
     playerId: socket.id,
-    team: (Math.floor(Math.random() * 2) == 0) ? 'red' : 'blue'
+    team: (Math.floor(Math.random() * 2) == 0) ? 'red' : 'blue',
+    score: 0
   };
 
   //send the player's object to the new player
   socket.emit('currentPlayers', players);
+  // send the star object to the new player
+  socket.emit('starLocation', star);
+  // send the current scores
+  socket.emit('scoreUpdate', players)
 
   //update all other players of the new player
   socket.broadcast.emit('newPlayer', players[socket.id]);
@@ -47,7 +58,18 @@ io.on('connection', function (socket) {
 
     //emit a message to all players about the player that moved
     socket.broadcast.emit('playerMoved', players[socket.id]);
-  })
+  });
+
+  //when a player colects a star, update the score
+  socket.on('starCollected', function() {
+    players[socket.id].score += 10;
+
+    star.x = Math.floor(Math.random() * gameWidth - 100) + 50;
+    star.y = Math.floor(Math.random() * gameHeight - 100) + 50;
+    io.emit('starLocation', star);
+    io.emit('scoreUpdate', players);
+  });
+
 });
 
 server.listen(8081, function () {

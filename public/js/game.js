@@ -16,27 +16,47 @@ var config = {
     preload: preload,
     create: create,
     update: update
+  },
+  scale: {
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH
   }
 };
 
 var game = new Phaser.Game(config);
+var graphics;
 const BLUE = 0x0000ff;
 const RED = 0xff0000;
+const menuTextDepth = 3;
+const menuBgDepth = 2;
+const gameObjectDepth = 1;
+const bgDepth = 0;
 
 function preload() {
   this.load.image('ship', 'assets/spaceShips_001.png');
   this.load.image('otherPlayer', 'assets/enemyBlack5.png');
+  this.load.image('star', 'assets/star_gold.png');
+  this.load.image('background', 'assets/background.png');
 }
 
 function create() {
   var self = this;
+  var cam = this.cameras.main;
   this.socket = io();
   this.otherPlayers = this.physics.add.group();
+
+  let bg = this.add.image(0, 0, "background").setOrigin(0,0);
+  bg.setDepth(bgDepth);
+
+  cam.setBounds(0, 0, bg.displayWidth, bg.displayHeight);
+  this.physics.world.setBounds(0, 0, bg.displayWidth, bg.displayHeight);
 
   this.socket.on('currentPlayers', function (players) {
     Object.keys(players).forEach(function (id) {
       if (players[id].playerId === self.socket.id) {
         addPlayer(self, players[id]);
+        cam.startFollow(self.ship);
+        self.ship.setCollideWorldBounds(true);
       } else {
         addOtherPlayers(self, players[id]);
       }
@@ -65,10 +85,43 @@ function create() {
   });
 
   this.cursors = this.input.keyboard.createCursorKeys();
+
+  // add scoreboard background
+  graphics = this.add.graphics();
+  graphics.setDepth(-1000);
+  graphics.fillStyle(0x000000, 0.5);
+  graphics.fillRoundedRect(8, 8, 200, 400, 8);
+  graphics.setScrollFactor(0);
+  graphics.setDepth(menuBgDepth);
+
+  this.scoreText = this.add.text(20, 20, '', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
+  this.scoreText.setScrollFactor(0);
+  this.scoreText.setDepth(menuTextDepth);
+
+  this.seperator = this.add.text(20, 38, '_____________', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
+  this.seperator.setScrollFactor(0);
+  this.seperator.setDepth(menuTextDepth);
+
+  this.socket.on('scoreUpdate', function (players) {
+    self.scoreText.setText('SCORE: ' + players[self.socket.id].score);
+  });
+
+  this.socket.on('starLocation', function (starLocation) {
+    if (self.star) self.star.destroy();
+    self.star = self.physics.add.image(starLocation.x, starLocation.y, 'star');
+    var collider = self.physics.add.overlap(self.ship, self.star, scoring, null, self);
+
+    function scoring () {
+      this.socket.emit('starCollected');
+      collider.active = false;
+    }
+  });
+
 }
 
 function addPlayer(self, playerInfo) {
   self.ship = self.physics.add.image(playerInfo.x, playerInfo.y, 'ship').setOrigin(0.5, 0.5).setDisplaySize(53, 40);
+  self.ship.setDepth(gameObjectDepth);
 
   if (playerInfo.team === 'blue') {
     self.ship.setTint(BLUE);
@@ -110,12 +163,11 @@ function update() {
       this.ship.setAcceleration(0);
     }
 
-    this.physics.world.wrap(this.ship, 15);
-
     // emit player movement
     var x = this.ship.x;
     var y = this.ship.y;
     var r = this.ship.rotation;
+
     if (this.ship.oldPosition && (x !== this.ship.oldPosition.x || y !== this.ship.oldPosition.y || r !== this.ship.oldPosition.rotation)) {
       this.socket.emit('playerMovement', {
         x: this.ship.x,
