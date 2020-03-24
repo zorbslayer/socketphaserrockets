@@ -42,8 +42,10 @@ function preload() {
 function create() {
   var self = this;
   var cam = this.cameras.main;
+  self.stars = new Array();
   this.socket = io();
   this.otherPlayers = this.physics.add.group();
+  this.starColliders = this.physics.add.group();
 
   let bg = this.add.image(0, 0, "background").setOrigin(0,0);
   bg.setDepth(bgDepth);
@@ -102,17 +104,53 @@ function create() {
   this.seperator.setScrollFactor(0);
   this.seperator.setDepth(menuTextDepth);
 
+  this.otherScoresText = this.add.text(20, 78, '', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
+  this.otherScoresText.setScrollFactor(0);
+  this.otherScoresText.setDepth(menuTextDepth);
+
   this.socket.on('scoreUpdate', function (players) {
     self.scoreText.setText('SCORE: ' + players[self.socket.id].score);
+    var scores = new Array();
+    var playerList = Object.values(players);
+    console.log(playerList);
+    let result = playerList.map(a => a.score);
+    console.log(result)
+
+    for (i = 0; i < playerList.length; i++) {
+      console.log(playerList[i].score);
+      scores.push(playerList[i].score);
+    }
+
+    scores.sort(function(a, b){return b-a});
+
+    var topScores = "";
+    var topScoreCount = -1;
+
+    if (playerList.length >= 10) {
+      topScoreCount = 10;
+    } else {
+      topScoreCount = playerList.length;
+    }
+
+    for (i = 0; i < topScoreCount; i++) {
+      topScores += (i+1) + ". " + scores[i] + "\n";
+    }
+
+    self.otherScoresText.setText(topScores);
   });
 
-  this.socket.on('starLocation', function (starLocation) {
-    if (self.star) self.star.destroy();
-    self.star = self.physics.add.image(starLocation.x, starLocation.y, 'star');
-    var collider = self.physics.add.overlap(self.ship, self.star, scoring, null, self);
+  this.socket.on('starLocation', function (starLocations, maxStars) {
 
-    function scoring () {
-      this.socket.emit('starCollected');
+    for (i = 0; i < maxStars; i++) {
+      if (self.stars[i]) self.stars[i].destroy();
+      self.stars[i] = self.physics.add.image(starLocations[i].x, starLocations[i].y, 'star');
+      self.starColliders.add(self.stars[i]);
+    }
+
+    var collider = self.physics.add.overlap(self.ship, self.starColliders, scoring, null, self);
+      
+    function scoring (player, star) {
+      this.socket.emit('starCollected', star);
       collider.active = false;
     }
   });

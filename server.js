@@ -4,12 +4,17 @@ var server = require('http').Server(app);
 var io = require('socket.io').listen(server);
 const gameWidth = 3840;
 const gameHeight = 2160;
+const maxStars = 50;
 
 var players = {};
-var star = {
-  x: Math.floor(Math.random() * gameWidth - 100) + 50,
-  y: Math.floor(Math.random() * gameHeight - 100) + 50
-};
+var stars = {};
+
+for (i = 0; i < maxStars; i++) {
+  stars[i] = {
+    x: Math.floor(Math.random() * gameWidth - 100) + 50,
+    y: Math.floor(Math.random() * gameHeight - 100) + 50,
+  };
+}
 
 app.use(express.static(__dirname + '/public'));
 
@@ -33,7 +38,7 @@ io.on('connection', function (socket) {
   //send the player's object to the new player
   socket.emit('currentPlayers', players);
   // send the star object to the new player
-  socket.emit('starLocation', star);
+  socket.emit('starLocation', stars, maxStars);
   // send the current scores
   socket.emit('scoreUpdate', players)
 
@@ -61,13 +66,16 @@ io.on('connection', function (socket) {
   });
 
   //when a player colects a star, update the score
-  socket.on('starCollected', function() {
+  socket.on('starCollected', function(star) {
     players[socket.id].score += 10;
-
-    star.x = Math.floor(Math.random() * gameWidth - 100) + 50;
-    star.y = Math.floor(Math.random() * gameHeight - 100) + 50;
-    io.emit('starLocation', star);
-    io.emit('scoreUpdate', players);
+      for (i = 0; i < maxStars; i++) {
+        if (stars[i].x == star.x && stars[i].y == star.y) {
+          stars[i].x = Math.floor(Math.random() * gameWidth - 100) + 50;
+          stars[i].y = Math.floor(Math.random() * gameHeight - 100) + 50;
+          io.emit('starLocation', stars, maxStars);
+          io.emit('scoreUpdate', players);
+        }
+      }
   });
 
 });
