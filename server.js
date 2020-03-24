@@ -25,34 +25,41 @@ app.get('/', function (req, res) {
 io.on('connection', function (socket) {
   console.log('a user connected');
 
-  //create a new player and add it to the players object
-  players[socket.id] = {
-    rotation: 0,
-    x: Math.floor(Math.random() * gameWidth - 100) + 50,
-    y: Math.floor(Math.random() * gameHeight - 100) + 50,
-    playerId: socket.id,
-    team: (Math.floor(Math.random() * 2) == 0) ? 'red' : 'blue',
-    score: 0
-  };
+  socket.on('playerJoined', function () {
+    //create a new player and add it to the players object
+    players[socket.id] = {
+      rotation: 0,
+      x: Math.floor(Math.random() * gameWidth - 100) + 50,
+      y: Math.floor(Math.random() * gameHeight - 100) + 50,
+      playerId: socket.id,
+      team: (Math.floor(Math.random() * 2) == 0) ? 'red' : 'blue',
+      score: 0,
+      name: ''
+    };
 
-  //send the player's object to the new player
-  socket.emit('currentPlayers', players);
-  // send the star object to the new player
-  socket.emit('starLocation', stars, maxStars);
-  // send the current scores
-  socket.emit('scoreUpdate', players)
+    //send the player's object to the new player
+    socket.emit('currentPlayers', players);
+    //send the star object to the new player
+    socket.emit('starLocation', stars, maxStars);
+    //send the current scores
+    socket.emit('scoreUpdate', players);
 
-  //update all other players of the new player
-  socket.broadcast.emit('newPlayer', players[socket.id]);
+    //update all other players of the new player
+    socket.broadcast.emit('newPlayer', players[socket.id]);
+    //update all other player's scoreboards
+    socket.broadcast.emit('scoreUpdate', players);
+  });
 
   socket.on('disconnect', function () {
     console.log('a user disconnected');
 
-    //remove this playe rfrom our players object
+    //remove this player from our players object
     delete players[socket.id];
 
     //emit a message to all players to remove this player
     io.emit('disconnect', socket.id);
+    //update all other player's scoreboards to remove this player
+    socket.broadcast.emit('scoreUpdate', players);
   });
 
   //when a player moves, update the player data

@@ -25,6 +25,7 @@ var config = {
 
 var game = new Phaser.Game(config);
 var graphics;
+var startedPlaying = false;
 const BLUE = 0x0000ff;
 const RED = 0xff0000;
 const menuTextDepth = 3;
@@ -46,14 +47,68 @@ function create() {
   this.socket = io();
   this.otherPlayers = this.physics.add.group();
   this.starColliders = this.physics.add.group();
+  this.mainMenu = this.physics.add.group();
 
-  let bg = this.add.image(0, 0, "background").setOrigin(0,0);
+  //add background
+  let bg = this.add.image(0, 0, 'background').setOrigin(0,0);
   bg.setDepth(bgDepth);
+
+  //add main menu background
+  menuGraphics = this.add.graphics();
+  menuGraphics.setDepth(-1000);
+  menuGraphics.fillStyle(0x000000, 0.5);
+  menuGraphics.fillRoundedRect(cam.centerX-200, cam.centerY-200, 400, 400, 8);
+  menuGraphics.setScrollFactor(0);
+  menuGraphics.setDepth(menuBgDepth);
+
+  //add title
+  this.titleText = this.add.text(cam.centerX-158, cam.centerY-180, 'Placeholder', { fontFamily: 'Roboto', fontSize: '64px', fill: '#FFFFFF', align: 'center' });
+  this.titleText.setDepth(menuTextDepth);
+  this.mainMenu.add(this.titleText);
+
+  //add play button
+  this.playButton = this.add.text(cam.centerX-60, cam.centerY+100, 'Play', { fontFamily: 'Roboto', fontSize: '64px', fill: '#FFFFFF', align: 'center' })
+     .setInteractive()
+     .on('pointerdown', function () { 
+       self.socket.emit('playerJoined'); 
+       self.mainMenu.destroy();
+     } )
+     .on('pointerover', function () { self.playButton.setStyle({ fill: '#ff0'}); } )
+     .on('pointerout', function () { self.playButton.setStyle({ fill: '#FFFFFF' }); } );
+  this.playButton.setDepth(menuTextDepth);
+  this.mainMenu.add(this.playButton);
 
   cam.setBounds(0, 0, bg.displayWidth, bg.displayHeight);
   this.physics.world.setBounds(0, 0, bg.displayWidth, bg.displayHeight);
 
   this.socket.on('currentPlayers', function (players) {
+    
+    if (!startedPlaying) {
+
+      //add scoreboard background
+      graphics = self.add.graphics();
+      graphics.setDepth(-1000);
+      graphics.fillStyle(0x000000, 0.5);
+      graphics.fillRoundedRect(8, 8, 200, 400, 8);
+      graphics.setScrollFactor(0);
+      graphics.setDepth(menuBgDepth);
+
+      //add scoreboard text
+      self.scoreText = self.add.text(20, 20, '', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
+      self.scoreText.setScrollFactor(0);
+      self.scoreText.setDepth(menuTextDepth);
+
+      self.seperator = self.add.text(20, 38, '_____________', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
+      self.seperator.setScrollFactor(0);
+      self.seperator.setDepth(menuTextDepth);
+
+      self.otherScoresText = self.add.text(20, 78, '', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
+      self.otherScoresText.setScrollFactor(0);
+      self.otherScoresText.setDepth(menuTextDepth);
+
+      startedPlaying = true;
+    }
+
     Object.keys(players).forEach(function (id) {
       if (players[id].playerId === self.socket.id) {
         addPlayer(self, players[id]);
@@ -88,36 +143,12 @@ function create() {
 
   this.cursors = this.input.keyboard.createCursorKeys();
 
-  // add scoreboard background
-  graphics = this.add.graphics();
-  graphics.setDepth(-1000);
-  graphics.fillStyle(0x000000, 0.5);
-  graphics.fillRoundedRect(8, 8, 200, 400, 8);
-  graphics.setScrollFactor(0);
-  graphics.setDepth(menuBgDepth);
-
-  this.scoreText = this.add.text(20, 20, '', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
-  this.scoreText.setScrollFactor(0);
-  this.scoreText.setDepth(menuTextDepth);
-
-  this.seperator = this.add.text(20, 38, '_____________', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
-  this.seperator.setScrollFactor(0);
-  this.seperator.setDepth(menuTextDepth);
-
-  this.otherScoresText = this.add.text(20, 78, '', { fontFamily: 'Roboto', fontSize: '32px', fill: '#FFFFFF'});
-  this.otherScoresText.setScrollFactor(0);
-  this.otherScoresText.setDepth(menuTextDepth);
-
   this.socket.on('scoreUpdate', function (players) {
     self.scoreText.setText('SCORE: ' + players[self.socket.id].score);
     var scores = new Array();
     var playerList = Object.values(players);
-    console.log(playerList);
-    let result = playerList.map(a => a.score);
-    console.log(result)
 
     for (i = 0; i < playerList.length; i++) {
-      console.log(playerList[i].score);
       scores.push(playerList[i].score);
     }
 
