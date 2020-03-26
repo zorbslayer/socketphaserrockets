@@ -25,7 +25,7 @@ app.get('/', function (req, res) {
 io.on('connection', function (socket) {
   console.log('a user connected');
 
-  socket.on('playerJoined', function () {
+  socket.on('playerJoined', function (username) {
     //create a new player and add it to the players object
     players[socket.id] = {
       rotation: 0,
@@ -34,7 +34,7 @@ io.on('connection', function (socket) {
       playerId: socket.id,
       team: (Math.floor(Math.random() * 2) == 0) ? 'red' : 'blue',
       score: 0,
-      name: ''
+      name: username
     };
 
     //send the player's object to the new player
