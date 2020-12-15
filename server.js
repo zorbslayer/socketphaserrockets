@@ -29,13 +29,15 @@ io.on('connection', function (socket) {
     //create a new player and add it to the players object
     players[socket.id] = {
       rotation: 0,
-      x: Math.floor(Math.random() * gameWidth - 100) + 50,
-      y: Math.floor(Math.random() * gameHeight - 100) + 50,
+      x: Math.floor(Math.random() * gameWidth - 100) + 150,
+      y: Math.floor(Math.random() * gameHeight - 100) + 150,
       playerId: socket.id,
       team: (Math.floor(Math.random() * 2) == 0) ? 'red' : 'blue',
       score: 0,
       name: username
     };
+
+    console.log(username + " joined")
 
     //send the player's object to the new player
     socket.emit('currentPlayers', players);
@@ -48,6 +50,29 @@ io.on('connection', function (socket) {
     socket.broadcast.emit('newPlayer', players[socket.id]);
     //update all other player's scoreboards
     socket.broadcast.emit('scoreUpdate', players);
+
+    //when a player moves, update the player data
+    socket.on('playerMovement', function(movementData) {
+      players[socket.id].x = movementData.x;
+      players[socket.id].y = movementData.y;
+      players[socket.id].rotation = movementData.rotation;
+
+      //emit a message to all players about the player that moved
+      socket.broadcast.emit('playerMoved', players[socket.id]);
+    });
+
+    //when a player colects a star, update the score
+    socket.on('starCollected', function(star) {
+      players[socket.id].score += 10;
+        for (i = 0; i < maxStars; i++) {
+          if (stars[i].x == star.x && stars[i].y == star.y) {
+            stars[i].x = Math.floor(Math.random() * gameWidth - 100) + 50;
+            stars[i].y = Math.floor(Math.random() * gameHeight - 100) + 50;
+            io.emit('starLocation', stars, maxStars);
+            io.emit('scoreUpdate', players);
+          }
+        }
+    });
   });
 
   socket.on('disconnect', function () {
@@ -61,30 +86,6 @@ io.on('connection', function (socket) {
     //update all other player's scoreboards to remove this player
     socket.broadcast.emit('scoreUpdate', players);
   });
-
-  //when a player moves, update the player data
-  socket.on('playerMovement', function(movementData) {
-    players[socket.id].x = movementData.x;
-    players[socket.id].y = movementData.y;
-    players[socket.id].rotation = movementData.rotation;
-
-    //emit a message to all players about the player that moved
-    socket.broadcast.emit('playerMoved', players[socket.id]);
-  });
-
-  //when a player colects a star, update the score
-  socket.on('starCollected', function(star) {
-    players[socket.id].score += 10;
-      for (i = 0; i < maxStars; i++) {
-        if (stars[i].x == star.x && stars[i].y == star.y) {
-          stars[i].x = Math.floor(Math.random() * gameWidth - 100) + 50;
-          stars[i].y = Math.floor(Math.random() * gameHeight - 100) + 50;
-          io.emit('starLocation', stars, maxStars);
-          io.emit('scoreUpdate', players);
-        }
-      }
-  });
-
 });
 
 server.listen(8081, function () {
